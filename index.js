@@ -4,48 +4,52 @@ const msgHandler = require('./msgHndlr')
 const options = require('./options')
 
 const start = async (client = new Client()) => {
-        console.log('[SERVER] Server Started!')
-        // Force it to keep the current session
-        client.onStateChanged((state) => {
-            console.log('[Client State]', state)
-            if (state === 'CONFLICT' || state === 'UNLAUNCHED') client.forceRefocus()
-        })
-        // listening on message
-        client.onMessage((async (message) => {
-            client.getAmountOfLoadedMessages()
+    console.log('[SERVER] Server Started!')
+    // Force it to keep the current session
+    client.onStateChanged((state) => {
+        console.log('[Client State]', state)
+        if (state === 'CONFLICT' || state === 'UNLAUNCHED') client.forceRefocus()
+    })
+    // Listen for new messages
+    client.onMessage(async (message) => {
+        client.getAmountOfLoadedMessages()
             .then((msg) => {
                 if (msg >= 3000) {
                     client.cutMsgCache()
                 }
             })
-            msgHandler(client, message)
-        }))
+        msgHandler(client, message)
+    })
 
-        client.onGlobalParticipantsChanged((async (heuh) => {
-            await welcome(client, heuh)
-            //left(client, heuh)
-            }))
-        
-        client.onAddedToGroup(((chat) => {
-            let totalMem = chat.groupMetadata.participants.length
-            if (totalMem < 30) { 
-            	client.sendText(chat.id, `Cih member nya cuma ${totalMem}, Kalo mau invite bot, minimal jumlah mem ada 30`).then(() => client.leaveGroup(chat.id)).then(() => client.deleteChat(chat.id))
-            } else {
-                client.sendText(chat.groupMetadata.id, `Halo warga grup *${chat.contact.name}* terimakasih sudah menginvite bot ini, untuk melihat menu silahkan kirim *!help*`)
-            }
-        }))
+    // Listen for participant changes in groups
+    client.onGlobalParticipantsChanged(async (event) => {
+        await welcome(client, event)
+        // left(client, event)
+    })
 
-        /*client.onAck((x => {
-            const { from, to, ack } = x
-            if (x !== 3) client.sendSeen(to)
-        }))*/
+    // Listen for the bot being added to a new group
+    client.onAddedToGroup((chat) => {
+        let totalMem = chat.groupMetadata.participants.length
+        if (totalMem < 30) {
+            client.sendText(chat.id, `Oh, there are only ${totalMem} members. If you want to invite the bot, there must be at least 30 members.`)
+                .then(() => client.leaveGroup(chat.id))
+                .then(() => client.deleteChat(chat.id))
+        } else {
+            client.sendText(chat.groupMetadata.id, `Hello members of the group *${chat.contact.name}*, thank you for inviting this bot. To see the menu, please send *!help*`)
+        }
+    })
 
-        // listening on Incoming Call
-        client.onIncomingCall(( async (call) => {
-            await client.sendText(call.peerJid, 'Maaf, saya tidak bisa menerima panggilan. nelfon = block!')
+    /*client.onAck((x => {
+        const { from, to, ack } = x
+        if (x !== 3) client.sendSeen(to)
+    }))*/
+
+    // Listen for incoming calls
+    client.onIncomingCall(async (call) => {
+        await client.sendText(call.peerJid, 'Sorry, I cannot take calls. Calling = block!')
             .then(() => client.contactBlock(call.peerJid))
-        }))
-    }
+    })
+}
 
 create(options(true, start))
     .then(client => start(client))
